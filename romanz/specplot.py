@@ -15,8 +15,10 @@ from astropy.table import Table, Column
 #from astropy.coordinates import SkyCoord
 #from astropy import units as u
 from astropy.cosmology import FlatLambdaCDM
+import pandas as pd
 
-import sncosmo
+#import sncosmo
+
 
 #from scipy.interpolate import interp1d
 #from scipy.integrate import trapz
@@ -229,7 +231,7 @@ def plot_spec_comparison(galid, showphot=True, showvuds=True, showdeimos=True,
     #sim1 = snhostspec.SnanaSimData()
     #sim1.load_hostlib_catalog("DATA/cosmos_example_hostlib.txt")
     #sim1.
-    eazytemplatedata = load_eazypy_templates(eazy_templates_filename)
+    eazytemplatedata = load_eazypy_templates(os.path.join(datadir,"eazy_13_spectral_templates.dat"), format='ascii.commented_header',verbose=True)
 
     # ---------------------------------
     # Simulated and Observed photometry :
@@ -237,17 +239,42 @@ def plot_spec_comparison(galid, showphot=True, showvuds=True, showdeimos=True,
 
 
     # plot the EAZY simulated spectrum
-    eazycoeffs = np.array([mastercat[col][ithisgal_mastercat]
-                           for col in mastercat.colnames
-                           if col.startswith('coeff_specbasis')])
-    outfilename = "DATA/cosmos_example_spectra/cosmos_example_host_simspec_" +\
-                  "{:6d}.fits".format(galid)
+
+    gals = pd.read_csv(os.path.join(datadir,"Akari_Hosts_subset_SNR_v7.HOSTLIB"),skiprows=722, sep = '\s+')
+    
+    
+    eazycoeffs = np.transpose(np.array([gals[col]
+                           for col in gals.columns
+                           if col.startswith('SPECBASIS')]))
+
+    redshifts = np.array(gals['ZTRUE'])
+
+    ymag = np.array(gals['y_obs'])
+    jmag = np.array(gals['j_obs'])
+    hmag = np.array(gals['h_obs'])
+    fmag = np.array(gals['f_obs'])
+
+    ywave = np.linspace(9300, 11900, num=11)
+    yvals = np.full(11,ymag[galid])
+    jwave = np.linspace(11300, 14500, num=11)
+    jvals = np.full(11,jmag[galid])
+    hwave = np.linspace(13800, 17700, num=11)
+    hvals = np.full(11,hmag[galid])
+    fwave = np.linspace(16800, 20000, num=11)
+    fvals = np.full(11,fmag[galid])
+    
+    z = redshifts[galid]
     wobs, mobs = simulate_eazy_sed_from_coeffs(
-        eazycoeffs, eazytemplatedata, z,
+        eazycoeffs[galid], eazytemplatedata, z,
         returnwaveunit='A', returnfluxunit='AB25',
-        savetofile=outfilename, overwrite=True)
+        savetofile='', overwrite=True)
     if showeazy:
         ax.plot(wobs, mobs, label='EAZY SED fit', color='0.5', zorder=10)
+        markers_on = [5]
+        ax.plot(ywave, yvals, '-gd', label='Y Band Mag', color='blue', markevery=markers_on)
+        ax.plot(jwave, jvals, '-gd', label='J Band Mag', color='red', markevery=markers_on)
+        ax.plot(hwave, hvals, '-gd', label='H Band Mag', color='green', markevery=markers_on)
+        ax.plot(fwave, fvals, '-gd', label='F Band Mag', color='purple', markevery=markers_on)
     
     ax.set_xlim(3000,19000)
     #ax.set_ylim(-0.25*1e-16,0.3*1e-16)
@@ -257,7 +284,7 @@ def plot_spec_comparison(galid, showphot=True, showvuds=True, showdeimos=True,
 
     ax = plt.gca()
     ax.set_xlim(3000, 19000)
-    ax.set_ylim(magmin-2,magmax+1)
+    ax.set_ylim(18,27)
 
     ax.legend(loc='upper left')
     ax.invert_yaxis()
@@ -265,11 +292,16 @@ def plot_spec_comparison(galid, showphot=True, showvuds=True, showdeimos=True,
     ax.set_xlabel('Observed Wavelength (Angstroms)')
     ax.set_ylabel("AB mag")
     plt.tight_layout()
-    #plt.savefig("cosmos_example_spec_eazysims.pdf")
+    plt.savefig("test_spec_" + str(galid) + ".png")
+    plt.clf()
 
     return
 
+if __name__ == "__main__":
 
+    for i in range(20):
+        plot_spec_comparison(i)
+    
 
 
 
